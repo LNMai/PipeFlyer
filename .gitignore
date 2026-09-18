@@ -4,7 +4,6 @@ Obj/
 Build/
 Builds/
 Logs/
-MemoryCaptures/
 UserSettings/
 *.csproj
 *.sln
