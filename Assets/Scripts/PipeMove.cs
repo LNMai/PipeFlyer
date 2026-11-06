@@ -2,18 +2,39 @@
 
 public class PipeMove : MonoBehaviour
 {
-    [SerializeField] private float moveSpeed = 3.0f; // Tốc độ di chuyển theo GDD
-    private float deadZone = -10.0f; // Vị trí X để ẩn ống đi
+    [Header("Oscillation Settings (Dùng cho chế độ Khó)")]
+    [SerializeField] private bool canMoveUpDown = false;
+    [SerializeField] private float moveSpeedY = 1.2f;
+    [SerializeField] private float moveDistanceY = 1.0f;
 
-    void Update()
+    private float startY;
+    private int directionY = 1;
+
+    private void Start()
     {
-        // Di chuyển ống sang trái
-        transform.position += Vector3.left * moveSpeed * Time.deltaTime;
+        startY = transform.position.y;
+    }
 
-        // Trả về pool (deactivate) khi chạy qua khỏi màn hình bên trái
-        if (transform.position.x < deadZone)
+    private void Update()
+    {
+        if (GameManager.Instance != null && GameManager.Instance.IsGameOver) return;
+
+        // Di chuyển sang trái theo tốc độ màn chơi
+        float speed = (GameManager.Instance != null) ? GameManager.Instance.gameSpeed : 3.0f;
+        transform.Translate(Vector3.left * speed * Time.deltaTime, Space.World);
+
+        // Nếu là cột màn Khó thì di chuyển lên xuống
+        if (canMoveUpDown)
         {
-            gameObject.SetActive(false);
+            transform.Translate(Vector3.up * directionY * moveSpeedY * Time.deltaTime, Space.World);
+            if (transform.position.y > startY + moveDistanceY) directionY = -1;
+            else if (transform.position.y < startY - moveDistanceY) directionY = 1;
+        }
+
+        // Tự hủy khi ra khỏi màn hình
+        if (transform.position.x < -12f)
+        {
+            Destroy(gameObject);
         }
     }
 }

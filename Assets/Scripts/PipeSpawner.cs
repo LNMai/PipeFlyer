@@ -1,63 +1,73 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 public class PipeSpawner : MonoBehaviour
 {
-    [Header("Pool Settings")]
-    [SerializeField] private GameObject pipePrefab;
-    [SerializeField] private int poolSize = 5;
+    [Header("Prefabs theo độ khó")]
+    [SerializeField] private GameObject pipeEasyPrefab;
+    [SerializeField] private GameObject pipeMediumPrefab;
+    [SerializeField] private GameObject pipeHardPrefab;
+
+    [Header("Coin Prefab")]
+    [SerializeField] private GameObject coinPrefab; // Thêm tham chiếu đến Prefab Coin
+    [Range(0f, 1f)]
+    [SerializeField] private float coinSpawnChance = 0.5f; // Tỉ lệ xuất hiện Coin (50%)
 
     [Header("Spawn Settings")]
-    [SerializeField] private float spawnInterval = 1.8f;
-    [SerializeField] private float minY = -2.0f;
-    [SerializeField] private float maxY = 2.0f;
+    [SerializeField] private float spawnRate = 2.0f;
+    [SerializeField] private float heightOffset = 1.5f;
 
-    private List<GameObject> pipePool = new List<GameObject>();
     private float timer = 0f;
+    private int currentDifficulty = 0;
 
-    void Start()
+    public void SetDifficulty(int level)
     {
-        // Khởi tạo danh sách các ống sẵn trong Pool
-        for (int i = 0; i < poolSize; i++)
+        currentDifficulty = level;
+    }
+
+    public void ResetSpawner()
+    {
+        timer = 0f;
+        foreach (Transform child in transform)
         {
-            GameObject obj = Instantiate(pipePrefab);
-            obj.SetActive(false);
-            pipePool.Add(obj);
+            Destroy(child.gameObject);
         }
     }
 
-    void Update()
+    private void Update()
     {
-        timer += Time.deltaTime;
-        if (timer >= spawnInterval)
+        if (GameManager.Instance != null && GameManager.Instance.IsGameOver) return;
+
+        if (timer > spawnRate)
         {
             SpawnPipe();
-            timer = 0f;
+            timer = 0;
         }
+        timer += Time.deltaTime;
     }
 
-    void SpawnPipe()
+    private void SpawnPipe()
     {
-        GameObject pipe = GetPooledPipe();
-        if (pipe != null)
-        {
-            // Ngẫu nhiên hóa độ cao trục Y trong khoảng an toàn
-            float randomY = Random.Range(minY, maxY);
-            pipe.transform.position = new Vector3(transform.position.x, randomY, 0);
-            pipe.SetActive(true);
-        }
-    }
+        // 1. Chọn loại ống theo độ khó
+        GameObject prefabToSpawn = pipeEasyPrefab;
+        if (currentDifficulty == 1 && pipeMediumPrefab != null) prefabToSpawn = pipeMediumPrefab;
+        else if (currentDifficulty == 2 && pipeHardPrefab != null) prefabToSpawn = pipeHardPrefab;
 
-    GameObject GetPooledPipe()
-    {
-        // Tìm ống đang ẩn để tái sử dụng
-        foreach (GameObject pipe in pipePool)
+        if (prefabToSpawn == null) return;
+
+        // 2. Tính toán vị trí Y ngẫu nhiên cho ống
+        float lowestPoint = transform.position.y - heightOffset;
+        float highestPoint = transform.position.y + heightOffset;
+        float randomY = Random.Range(lowestPoint, highestPoint);
+
+        Vector3 spawnPos = new Vector3(transform.position.x, randomY, 0);
+        GameObject newPipePair = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity, transform);
+
+        // 3. Sinh Coin ngẫu nhiên giữa khe ống (nếu có coinPrefab)
+        if (coinPrefab != null && Random.value <= coinSpawnChance)
         {
-            if (!pipe.activeInHierarchy)
-            {
-                return pipe;
-            }
+            // Vị trí coin nằm chính giữa khe ống (tọa độ Y bằng randomY)
+            Vector3 coinPos = new Vector3(transform.position.x, randomY, 0);
+            GameObject newCoin = Instantiate(coinPrefab, coinPos, Quaternion.identity, newPipePair.transform);
         }
-        return null;
     }
 }
