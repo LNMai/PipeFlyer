@@ -59,35 +59,84 @@ public class ShopManager : MonoBehaviour
     public void OpenShop()
     {
         if (shopPanel != null) shopPanel.SetActive(true);
+        if (notificationPanel != null) notificationPanel.SetActive(false); // Đảm bảo ẩn thông báo cũ khi mở Shop
         currentDisplayIndex = PlayerPrefs.GetInt(SELECTED_SKIN_KEY, 0);
         UpdateShopUI();
     }
 
-    // Ẩn Panel Shop
     public void CloseShop()
     {
+        if (notificationCoroutine != null) StopCoroutine(notificationCoroutine);
+        if (notificationPanel != null) notificationPanel.SetActive(false); // Tắt thông báo khi đóng Shop
         if (shopPanel != null) shopPanel.SetActive(false);
+
+        // Đồng bộ lại Total Coin và UI trên Main Menu
+        MainMenuManager mainMenu = FindFirstObjectByType<MainMenuManager>();
+        if (mainMenu != null)
+        {
+            mainMenu.UpdateMainMenuUI();
+        }
     }
 
     // Chuyển sang Skin tiếp theo trong danh sách
     private void NextSkin()
     {
         if (skinList == null || skinList.Count == 0) return;
-
         if (AudioManager.Instance != null) AudioManager.Instance.PlayClickSFX();
+
+        // Dừng Coroutine thông báo cũ (nếu có) trước khi cập nhật UI skin mới
+        if (notificationCoroutine != null) StopCoroutine(notificationCoroutine);
+
         currentDisplayIndex = (currentDisplayIndex + 1) % skinList.Count;
         UpdateShopUI();
     }
 
-    // Quay lại Skin phía trước trong danh sách
     private void PrevSkin()
     {
         if (skinList == null || skinList.Count == 0) return;
-
         if (AudioManager.Instance != null) AudioManager.Instance.PlayClickSFX();
+
+        // Dừng Coroutine thông báo cũ (nếu có) trước khi cập nhật UI skin mới
+        if (notificationCoroutine != null) StopCoroutine(notificationCoroutine);
+
         currentDisplayIndex--;
         if (currentDisplayIndex < 0) currentDisplayIndex = skinList.Count - 1;
         UpdateShopUI();
+    }
+
+    private void OnActionButtonClicked()
+    {
+        if (skinList == null || skinList.Count == 0) return;
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayClickSFX();
+
+        bool isUnlocked = PlayerPrefs.GetInt("SkinUnlocked_" + currentDisplayIndex, 0) == 1;
+        int totalCoins = PlayerPrefs.GetInt("TotalCoins", 0);
+        SkinItemData currentSkin = skinList[currentDisplayIndex];
+
+        if (!isUnlocked)
+        {
+            if (totalCoins >= currentSkin.price)
+            {
+                totalCoins -= currentSkin.price;
+                PlayerPrefs.SetInt("TotalCoins", totalCoins);
+                PlayerPrefs.SetInt("SkinUnlocked_" + currentDisplayIndex, 1);
+                PlayerPrefs.SetInt(SELECTED_SKIN_KEY, currentDisplayIndex);
+                PlayerPrefs.Save();
+
+                UpdateShopUI();
+                ShowNotification("Skin unlocked!"); // Gọi SAU UpdateShopUI để thông báo mở khóa hiển thị 1.5s rồi tự tắt
+
+                // Đồng bộ ngay TotalCoin ngoài Main Menu
+                MainMenuManager mainMenu = FindFirstObjectByType<MainMenuManager>();
+                if (mainMenu != null) mainMenu.UpdateMainMenuUI();
+            }
+        }
+        else
+        {
+            PlayerPrefs.SetInt(SELECTED_SKIN_KEY, currentDisplayIndex);
+            PlayerPrefs.Save();
+            UpdateShopUI();
+        }
     }
 
     // Cập nhật toàn bộ thông tin UI của Skin đang chọn
@@ -114,79 +163,58 @@ public class ShopManager : MonoBehaviour
 
         if (isUnlocked)
         {
-            // Ẩn cả text giá tiền và icon xu khi skin đã mua/được mở khóa
+            // Ẩn giá tiền, icon xu và ẩn cảnh báo thiếu xu
             if (priceText != null) priceText.gameObject.SetActive(false);
             if (coinIcon != null) coinIcon.gameObject.SetActive(false);
+            if (notificationPanel != null) notificationPanel.SetActive(false);
 
             if (selectedIndex == currentDisplayIndex)
             {
-                // Đang sử dụng skin này
                 if (actionButtonText != null) actionButtonText.text = "Selected";
                 if (actionButton != null) actionButton.interactable = false;
             }
             else
             {
-                // Đã mở khóa nhưng chưa dùng
                 if (actionButtonText != null) actionButtonText.text = "Select";
                 if (actionButton != null) actionButton.interactable = true;
             }
         }
         else
         {
-            // Chưa mua: Hiển thị lại text giá tiền và icon xu
+            // Chưa mua: Hiển thị giá tiền và icon xu
             if (priceText != null)
             {
                 priceText.gameObject.SetActive(true);
                 priceText.text = currentSkin.price.ToString();
             }
-
             if (coinIcon != null)
             {
                 coinIcon.gameObject.SetActive(true);
             }
 
+            bool hasEnoughCoins = (totalCoins >= currentSkin.price);
+
             if (actionButtonText != null) actionButtonText.text = "Buy";
-            if (actionButton != null) actionButton.interactable = (totalCoins >= currentSkin.price);
+            if (actionButton != null) actionButton.interactable = hasEnoughCoins;
+
+            // Hiển thị cố định cảnh báo nếu không đủ xu, ngược lại thì ẩn đi
+            if (notificationPanel != null && notificationText != null)
+            {
+                if (!hasEnoughCoins)
+                {
+                    notificationText.text = "Not enough coins";
+                    if (notificationCanvasGroup != null) notificationCanvasGroup.alpha = 1f;
+                    notificationPanel.SetActive(true);
+                }
+                else
+                {
+                    notificationPanel.SetActive(false);
+                }
+            }
         }
     }
 
-    // Xử lý sự kiện khi ấn nút hành động (Mua / Chọn Skin)
-    private void OnActionButtonClicked()
-    {
-        if (skinList == null || skinList.Count == 0) return;
-        if (AudioManager.Instance != null) AudioManager.Instance.PlayClickSFX();
-
-        bool isUnlocked = PlayerPrefs.GetInt("SkinUnlocked_" + currentDisplayIndex, 0) == 1;
-        int totalCoins = PlayerPrefs.GetInt("TotalCoins", 0);
-        SkinItemData currentSkin = skinList[currentDisplayIndex];
-
-        if (!isUnlocked)
-        {
-            // Xử lý logic mua Skin
-            if (totalCoins >= currentSkin.price)
-            {
-                totalCoins -= currentSkin.price;
-                PlayerPrefs.SetInt("TotalCoins", totalCoins);
-                PlayerPrefs.SetInt("SkinUnlocked_" + currentDisplayIndex, 1);
-                PlayerPrefs.SetInt(SELECTED_SKIN_KEY, currentDisplayIndex);
-                PlayerPrefs.Save();
-
-                ShowNotification("Skin unlocked!");
-            }
-            else
-            {
-                ShowNotification("Not enough coins!");
-            }
-        }
-        else
-        {
-            // Xử lý logic chọn Skin để trang bị
-            PlayerPrefs.SetInt(SELECTED_SKIN_KEY, currentDisplayIndex);
-            PlayerPrefs.Save();
-        }
-
-        UpdateShopUI();
-    }
+    
 
     // Lấy Sprite của Skin hiện đang được chọn để trang bị cho Player
     public Sprite GetSelectedSkinSprite()

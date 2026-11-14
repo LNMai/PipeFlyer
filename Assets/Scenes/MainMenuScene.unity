@@ -4543,13 +4543,13 @@ MonoBehaviour:
     price: 60
   - skinName: Blue Ship
     skinSprite: {fileID: 5015515735482053188, guid: 19bb2f4819914fe4ab181102aa52c7ae, type: 3}
-    price: 75
+    price: 100
   - skinName: Green Ship
     skinSprite: {fileID: -1335372164229887253, guid: 2b6b5f265cd54d5469e3360f2307b281, type: 3}
     price: 55
   - skinName: Pink Alien
     skinSprite: {fileID: -6534852688665740072, guid: a8d445d54616bd24ab06830283805d7f, type: 3}
-    price: 45
+    price: 10
   - skinName: Beige Alien
     skinSprite: {fileID: -5262953263036921317, guid: 66182e42f798913438b7096cd0343ab6, type: 3}
     price: 55
@@ -4739,7 +4739,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2043558121
 RectTransform:
   m_ObjectHideFlags: 0
